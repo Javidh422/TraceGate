@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TraceGate — QA, API Reliability & Support Triage Sandbox</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            apple: {
+              bg: '#fbfbfd',
+              card: '#ffffff',
+              border: 'rgba(0, 0, 0, 0.08)',
+              subtle: '#f5f5f7',
+              text: '#1d1d1f',
+              secondary: '#6e6e73',
+              tertiary: '#86868b',
+              blue: '#0071e3',
+              blueHover: '#0077ed',
+              successBg: '#eefaf0',
+              successText: '#1b5e20',
+              successBorder: '#ccebd0',
+              warningBg: '#fff8e6',
+              warningText: '#92400e',
+              warningBorder: '#fedf89',
+              dangerBg: '#fff0f0',
+              dangerText: '#c92a2a',
+              dangerBorder: '#fcc2c2'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          },
+          letterSpacing: {
+            tightest: '-0.025em',
+            tighter: '-0.02em',
+            tight: '-0.015em'
+          },
+          boxShadow: {
+            apple: '0 4px 24px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02)',
+            appleHover: '0 8px 30px -4px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03)',
+            appleModal: '0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Apple typography & smooth scrolling */
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: #fbfbfd;
+      color: #1d1d1f;
+    }
+
+    /* iOS-Style Toggle Switch */
+    .ios-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .ios-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .ios-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e5ea;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 980px;
+    }
+
+    .ios-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18), 0 1px 1px rgba(0, 0, 0, 0.06);
+    }
+
+    .ios-switch input:checked + .ios-slider {
+      background-color: #0071e3;
+    }
+
+    .ios-switch input:focus + .ios-slider {
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+    }
+
+    .ios-switch input:checked + .ios-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Specific Chaos Danger Toggles (Red / Orange iOS Tint) */
+    .ios-switch.toggle-danger input:checked + .ios-slider {
+      background-color: #ff3b30;
+    }
+    .ios-switch.toggle-warning input:checked + .ios-slider {
+      background-color: #ff9500;
+    }
+    .ios-switch.toggle-purple input:checked + .ios-slider {
+      background-color: #af52de;
+    }
+
+    /* Apple Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 980px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+  </style>
+</head>
+<body class="bg-[#fbfbfd] text-[#1d1d1f] min-h-screen flex flex-col font-sans selection:bg-[#0071e3] selection:text-white">
+
+  <!-- FROSTED TRANSLUCENT TOP NAVIGATION (APPLE PRODUCT HEADER) -->
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-[#fbfbfd]/80 border-b border-black/[0.08] transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Description -->
+      <div class="flex items-center space-x-3.5">
+        <div class="w-9 h-9 rounded-xl bg-[#1d1d1f] flex items-center justify-center shadow-sm">
+          <i class="fa-solid fa-shield-halved text-white text-sm"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-[17px] font-semibold tracking-tight text-[#1d1d1f]">TraceGate</span>
+            <span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-[#f5f5f7] text-[#6e6e73] border border-black/[0.06]">Sandbox</span>
+          </div>
+          <p class="text-[11px] text-[#6e6e73] -mt-0.5">QA Chaos Engineering & Support Triage</p>
+        </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="flex items-center space-x-2.5">
+        <!-- Status Pill -->
+        <div id="system-status-badge" class="hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-[#eefaf0] border border-[#ccebd0] text-[#1b5e20] text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-[#34c759] animate-pulse"></span>
+          <span id="system-status-text">System Nominal</span>
+        </div>
+
+        <!-- Run pytest Pill Button -->
+        <button onclick="runPytestSuite()" class="inline-flex items-center space-x-2 px-4 py-1.5 text-xs font-medium rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white shadow-sm transition-all active:scale-[0.98]">
+          <i class="fa-solid fa-vial-circle-check text-[11px]"></i>
+          <span>Run pytest Suite</span>
+        </button>
+
+        <!-- Reset Sandbox Pill Button -->
+        <button onclick="resetSandbox()" class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-medium rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] border border-black/[0.06] transition-all active:scale-[0.98]">
+          <i class="fa-solid fa-rotate-left text-[#c92a2a] text-[11px]"></i>
+          <span>Reset Sandbox</span>
+        </button>
+
+        <!-- Refresh Button -->
+        <button onclick="fetchOverview()" title="Refresh Telemetry" class="w-8 h-8 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#6e6e73] hover:text-[#1d1d1f] flex items-center justify-center border border-black/[0.06] transition-all">
+          <i class="fa-solid fa-arrows-rotate text-xs" id="refresh-icon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-7 w-full">
+
+    <!-- METRICS OVERVIEW STRIP (APPLE MINIMALIST METRICS) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      
+      <div class="bg-white border border-black/[0.08] rounded-[22px] p-6 shadow-apple flex items-center justify-between">
+        <div>
+          <p class="text-[12px] font-medium text-[#86868b] tracking-tight uppercase">Total Bookings</p>
+          <p id="stat-total-bookings" class="text-3xl font-semibold text-[#1d1d1f] tracking-tightest mt-1">-</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-[#0071e3]/10 flex items-center justify-center text-[#0071e3]">
+          <i class="fa-solid fa-calendar-check text-base"></i>
+        </div>
+      </div>
+
+      <div class="bg-white border border-black/[0.08] rounded-[22px] p-6 shadow-apple flex items-center justify-between">
+        <div>
+          <p class="text-[12px] font-medium text-[#86868b] tracking-tight uppercase">Open Tickets</p>
+          <p id="stat-open-tickets" class="text-3xl font-semibold text-[#ff9500] tracking-tightest mt-1">-</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-[#ff9500]/10 flex items-center justify-center text-[#ff9500]">
+          <i class="fa-solid fa-triangle-exclamation text-base"></i>
+        </div>
+      </div>
+
+      <div class="bg-white border border-black/[0.08] rounded-[22px] p-6 shadow-apple flex items-center justify-between">
+        <div>
+          <p class="text-[12px] font-medium text-[#86868b] tracking-tight uppercase">API Telemetry</p>
+          <p id="stat-total-logs" class="text-3xl font-semibold text-[#5856d6] tracking-tightest mt-1">-</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-[#5856d6]/10 flex items-center justify-center text-[#5856d6]">
+          <i class="fa-solid fa-chart-line text-base"></i>
+        </div>
+      </div>
+
+      <div class="bg-white border border-black/[0.08] rounded-[22px] p-6 shadow-apple flex items-center justify-between">
+        <div>
+          <p class="text-[12px] font-medium text-[#86868b] tracking-tight uppercase">Chaos Faults</p>
+          <p id="stat-active-faults" class="text-3xl font-semibold text-[#ff3b30] tracking-tightest mt-1">0 / 4</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-[#ff3b30]/10 flex items-center justify-center text-[#ff3b30]">
+          <i class="fa-solid fa-biohazard text-base"></i>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 1: CHAOS & FAULT INJECTION CONTROLS (ELEVATED APPLE CARD) -->
+    <div class="bg-white border border-black/[0.08] rounded-[24px] p-7 sm:p-8 shadow-apple">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 mb-6 border-b border-black/[0.06] gap-2">
+        <div class="space-y-0.5">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#0071e3]">Chaos Engineering</span>
+            <span class="text-xs text-[#86868b]">•</span>
+            <span class="text-xs font-mono text-[#86868b]">POST /api/faults</span>
+          </div>
+          <h2 class="text-xl font-semibold text-[#1d1d1f] tracking-tightest">Fault-Injection Matrix</h2>
+          <p class="text-xs text-[#6e6e73]">Inject upstream timeouts, dropped asynchronous webhooks, DB exceptions, or traffic throttles.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Toggle 1: Payment Timeout -->
+        <div class="bg-[#fbfbfd] border border-black/[0.06] hover:border-black/[0.12] rounded-[18px] p-5 flex flex-col justify-between transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-[11px] font-mono font-medium text-[#c92a2a] bg-[#fff0f0] px-2 py-0.5 rounded-full border border-[#fcc2c2]">payment_timeout</span>
+              <h3 class="text-sm font-semibold text-[#1d1d1f] tracking-tight mt-2">Gateway 504 Timeout</h3>
+            </div>
+            <label class="ios-switch toggle-danger">
+              <input type="checkbox" id="toggle-payment_timeout" onchange="toggleFault('payment_timeout', this.checked)">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+          <p class="text-xs text-[#6e6e73] mt-3 leading-relaxed">Simulates payment gateway hanging and failing with HTTP 504 Timeout.</p>
+        </div>
+
+        <!-- Toggle 2: Drop Webhook -->
+        <div class="bg-[#fbfbfd] border border-black/[0.06] hover:border-black/[0.12] rounded-[18px] p-5 flex flex-col justify-between transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-[11px] font-mono font-medium text-[#92400e] bg-[#fff8e6] px-2 py-0.5 rounded-full border border-[#fedf89]">drop_webhook</span>
+              <h3 class="text-sm font-semibold text-[#1d1d1f] tracking-tight mt-2">Drop Webhook in Transit</h3>
+            </div>
+            <label class="ios-switch toggle-warning">
+              <input type="checkbox" id="toggle-drop_webhook" onchange="toggleFault('drop_webhook', this.checked)">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+          <p class="text-xs text-[#6e6e73] mt-3 leading-relaxed">Money debited, but booking stays PENDING. Automatically opens a support ticket.</p>
+        </div>
+
+        <!-- Toggle 3: Force 500 Booking -->
+        <div class="bg-[#fbfbfd] border border-black/[0.06] hover:border-black/[0.12] rounded-[18px] p-5 flex flex-col justify-between transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-[11px] font-mono font-medium text-[#c92a2a] bg-[#fff0f0] px-2 py-0.5 rounded-full border border-[#fcc2c2]">force_500_booking</span>
+              <h3 class="text-sm font-semibold text-[#1d1d1f] tracking-tight mt-2">Simulate DB Crash (500)</h3>
+            </div>
+            <label class="ios-switch toggle-danger">
+              <input type="checkbox" id="toggle-force_500_booking" onchange="toggleFault('force_500_booking', this.checked)">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+          <p class="text-xs text-[#6e6e73] mt-3 leading-relaxed">Abruptly rejects booking storage with HTTP 500 Internal Server Error.</p>
+        </div>
+
+        <!-- Toggle 4: Strict Rate Limit -->
+        <div class="bg-[#fbfbfd] border border-black/[0.06] hover:border-black/[0.12] rounded-[18px] p-5 flex flex-col justify-between transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-[11px] font-mono font-medium text-[#5856d6] bg-[#f5f3ff] px-2 py-0.5 rounded-full border border-[#ddd6fe]">strict_rate_limit</span>
+              <h3 class="text-sm font-semibold text-[#1d1d1f] tracking-tight mt-2">Strict Throttling (429)</h3>
+            </div>
+            <label class="ios-switch toggle-purple">
+              <input type="checkbox" id="toggle-strict_rate_limit" onchange="toggleFault('strict_rate_limit', this.checked)">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+          <p class="text-xs text-[#6e6e73] mt-3 leading-relaxed">Throttles traffic: more than 3 booking requests in 10s trigger HTTP 429.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECTION 2: BOOKING & PAYMENT WEBHOOK SIMULATOR (DUAL COLUMN + RESPONSE) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Create Booking Form Card -->
+      <div class="lg:col-span-4 bg-white border border-black/[0.08] rounded-[24px] p-7 shadow-apple flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.06]">
+            <div>
+              <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">Create Booking</h3>
+              <p class="text-xs text-[#6e6e73]">Dispatch new customer reservation</p>
+            </div>
+            <span class="text-[11px] font-mono text-[#86868b]">POST /api/bookings</span>
+          </div>
+
+          <form id="booking-form" onsubmit="submitBooking(event)" class="space-y-3.5">
+            <div>
+              <label class="block text-xs font-medium text-[#1d1d1f] mb-1">Customer Name</label>
+              <input type="text" id="bk-name" required value="Aditi Rao" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#1d1d1f] mb-1">Customer Email</label>
+              <input type="email" id="bk-email" required value="aditi.rao@example.com" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-medium text-[#1d1d1f] mb-1">Service Type</label>
+                <select id="bk-service" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3 py-2 text-xs text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+                  <option value="Brake Inspection">Brake Inspection</option>
+                  <option value="Full Vehicle Service" selected>Full Vehicle Service</option>
+                  <option value="AC Diagnostics">AC Diagnostics</option>
+                  <option value="Periodic Maintenance">Periodic Maintenance</option>
+                  <option value="Ceramic Coating">Ceramic Coating</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[#1d1d1f] mb-1">Amount (₹)</label>
+                <input type="number" id="bk-amount" step="0.01" min="1" required value="2499.00" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-medium text-[#1d1d1f]">Idempotency Key</label>
+                <button type="button" onclick="generateIdempotencyKey()" class="text-[11px] font-medium text-[#0071e3] hover:underline">
+                  Generate
+                </button>
+              </div>
+              <input type="text" id="bk-idempotency" placeholder="e.g. idem-a1b2c3" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs font-mono text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" id="btn-submit-booking" class="w-full py-2.5 px-4 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-medium text-xs shadow-sm transition-all active:scale-[0.98] flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-paper-plane text-[11px]"></i>
+                <span>Dispatch Booking (201)</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Payment Webhook Simulator Card -->
+      <div class="lg:col-span-4 bg-white border border-black/[0.08] rounded-[24px] p-7 shadow-apple flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.06]">
+            <div>
+              <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">Payment Webhook</h3>
+              <p class="text-xs text-[#6e6e73]">Simulate gateway status callback</p>
+            </div>
+            <span class="text-[11px] font-mono text-[#86868b]">POST /api/payments/webhook</span>
+          </div>
+
+          <form id="webhook-form" onsubmit="submitWebhook(event)" class="space-y-3.5">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-medium text-[#1d1d1f]">Target Booking ID</label>
+                <span class="text-[11px] text-[#86868b]">Click row below to autofill</span>
+              </div>
+              <input type="text" id="wh-booking-id" required placeholder="BK-1002" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs font-mono text-[#0071e3] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all font-semibold">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#1d1d1f] mb-1">Webhook Event Type</label>
+              <select id="wh-event" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3 py-2 text-xs text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+                <option value="payment.captured" selected>payment.captured (Valid)</option>
+                <option value="payment.failed">payment.failed (Unsupported - 400)</option>
+                <option value="chargeback.dispute">chargeback.dispute (Unsupported - 400)</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-medium text-[#1d1d1f]">Gateway Transaction ID</label>
+                <button type="button" onclick="generateTxnId()" class="text-[11px] font-medium text-[#0071e3] hover:underline">
+                  Generate
+                </button>
+              </div>
+              <input type="text" id="wh-txn-id" required class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[12px] px-3.5 py-2 text-xs font-mono text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all">
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" id="btn-submit-webhook" class="w-full py-2.5 px-4 rounded-full bg-[#1d1d1f] hover:bg-[#323236] text-white font-medium text-xs shadow-sm transition-all active:scale-[0.98] flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-bolt text-[11px]"></i>
+                <span>Send Webhook Callback</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Live Response Inspector Card (Clean Apple Developer Console Styling) -->
+      <div class="lg:col-span-4 bg-white border border-black/[0.08] rounded-[24px] p-7 shadow-apple flex flex-col">
+        <div class="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.06]">
+          <div>
+            <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">Response Inspector</h3>
+            <p class="text-xs text-[#6e6e73]">Live JSON telemetry & latency</p>
+          </div>
+          <span id="response-status-badge" class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-[#f5f5f7] text-[#6e6e73] border border-black/[0.06]">Idle</span>
+        </div>
+
+        <div class="flex-1 bg-[#f5f5f7] border border-black/[0.06] rounded-[16px] p-4 flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between text-[11px] text-[#86868b] mb-2 pb-1.5 border-b border-black/[0.04]">
+            <span id="response-endpoint" class="font-mono truncate">Ready for requests</span>
+            <span id="response-time" class="font-mono">-</span>
+          </div>
+          <pre id="json-viewer" class="flex-1 overflow-auto text-xs font-mono text-[#1d1d1f] leading-relaxed p-1">{\n  "message": "Dispatch a booking or webhook simulation to inspect real-time JSON response headers & payload."\n}</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 3: L1/L2 SUPPORT TRIAGE & AUTO-TICKETING (APPLE DATA TABLE) -->
+    <div class="bg-white border border-black/[0.08] rounded-[24px] p-7 sm:p-8 shadow-apple">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 mb-5 border-b border-black/[0.06] gap-2">
+        <div class="space-y-0.5">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#ff9500]">Support Operations</span>
+            <span class="text-xs text-[#86868b]">•</span>
+            <span class="text-xs font-mono text-[#86868b]">L1 / L2 Queue</span>
+          </div>
+          <h2 class="text-xl font-semibold text-[#1d1d1f] tracking-tightest">Support Triage Queue</h2>
+          <p class="text-xs text-[#6e6e73]">Investigate dropped webhooks, reconcile ghost payment debits, and restore transaction integrity.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-[#6e6e73]">Auto-Ticketing:</span>
+          <span class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-[#eefaf0] text-[#1b5e20] border border-[#ccebd0]">Active</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-black/[0.06] text-[#86868b] font-medium bg-[#fbfbfd]">
+              <th class="py-3 px-3.5">Ticket ID</th>
+              <th class="py-3 px-3.5">Booking ID</th>
+              <th class="py-3 px-3.5">Severity</th>
+              <th class="py-3 px-3.5">Title & Issue Detail</th>
+              <th class="py-3 px-3.5">Status</th>
+              <th class="py-3 px-3.5">Resolution Note</th>
+              <th class="py-3 px-3.5 text-right">Triage Action</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-table-body" class="divide-y divide-black/[0.04]">
+            <!-- Dynamic Ticket Rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 4: READ-ONLY SQL DIAGNOSTIC CONSOLE -->
+    <div class="bg-white border border-black/[0.08] rounded-[24px] p-7 sm:p-8 shadow-apple space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-black/[0.06] gap-2">
+        <div class="space-y-0.5">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#5856d6]">Data Diagnostics</span>
+            <span class="text-xs text-[#86868b]">•</span>
+            <span class="text-xs font-mono text-[#86868b]">POST /api/support/sql</span>
+          </div>
+          <h2 class="text-xl font-semibold text-[#1d1d1f] tracking-tightest">Read-Only SQL Diagnostic Console</h2>
+          <p class="text-xs text-[#6e6e73]">Execute read-only SELECT diagnostic queries. Strict security guards block DROP, UPDATE, DELETE, and DDL.</p>
+        </div>
+        <span class="text-xs font-medium text-[#5856d6] bg-[#f5f3ff] px-3 py-1 rounded-full border border-[#ddd6fe] inline-flex items-center self-start sm:self-auto">
+          <i class="fa-solid fa-lock mr-1.5 text-[10px]"></i>Security Guard Enforced
+        </span>
+      </div>
+
+      <!-- Presets Pill Bar -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-medium text-[#6e6e73] mr-1">Presets:</span>
+        <button onclick="applySqlPreset('mismatched')" class="px-3 py-1.5 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] text-xs font-medium border border-black/[0.04] transition">
+          <i class="fa-solid fa-magnifying-glass mr-1.5 text-[#ff9500]"></i>Mismatched Payments
+        </button>
+        <button onclick="applySqlPreset('stuck_tickets')" class="px-3 py-1.5 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] text-xs font-medium border border-black/[0.04] transition">
+          <i class="fa-solid fa-ticket mr-1.5 text-[#ff3b30]"></i>Open Support Tickets
+        </button>
+        <button onclick="applySqlPreset('recent_errors')" class="px-3 py-1.5 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] text-xs font-medium border border-black/[0.04] transition">
+          <i class="fa-solid fa-triangle-exclamation mr-1.5 text-[#ff3b30]"></i>HTTP Errors (4xx/5xx)
+        </button>
+        <button onclick="applySqlPreset('all_bookings')" class="px-3 py-1.5 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] text-xs font-medium border border-black/[0.04] transition">
+          <i class="fa-solid fa-table-list mr-1.5 text-[#0071e3]"></i>All Bookings
+        </button>
+        <button onclick="applySqlPreset('blocked_test')" class="px-3 py-1.5 rounded-full bg-[#fff0f0] hover:bg-[#ffe5e5] text-[#c92a2a] text-xs font-medium border border-[#fcc2c2] transition">
+          <i class="fa-solid fa-shield-virus mr-1.5"></i>Test Guard (DROP TABLE)
+        </button>
+      </div>
+
+      <!-- SQL Input Box -->
+      <div class="space-y-3">
+        <div class="relative">
+          <textarea id="sql-input" rows="3" class="w-full bg-[#f5f5f7] border border-black/[0.08] focus:border-[#0071e3] focus:bg-white rounded-[14px] p-3.5 font-mono text-xs text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 transition-all" placeholder="SELECT * FROM bookings WHERE status = 'PENDING_PAYMENT';"></textarea>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div id="sql-error-box" class="hidden text-xs text-[#c92a2a] bg-[#fff0f0] border border-[#fcc2c2] px-3.5 py-2 rounded-full flex items-center space-x-2">
+            <i class="fa-solid fa-circle-xmark"></i>
+            <span id="sql-error-text"></span>
+          </div>
+          
+          <div class="ml-auto">
+            <button onclick="executeSql()" id="btn-execute-sql" class="px-5 py-2 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-medium text-xs transition shadow-sm active:scale-[0.98] flex items-center space-x-2">
+              <i class="fa-solid fa-play text-[11px]"></i>
+              <span>Execute Diagnostic Query</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SQL Result Table -->
+      <div id="sql-result-container" class="hidden bg-[#f5f5f7] border border-black/[0.06] rounded-[16px] p-4 overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-[#6e6e73] mb-3 pb-2 border-b border-black/[0.06]">
+          <span class="font-medium">Query Output Result</span>
+          <span id="sql-row-count" class="font-mono text-[#1b5e20] font-medium">0 rows returned</span>
+        </div>
+        <div class="overflow-x-auto max-h-60 bg-white rounded-[12px] border border-black/[0.06]">
+          <table class="w-full text-left text-xs border-collapse font-mono" id="sql-result-table">
+            <thead class="bg-[#fbfbfd] text-[#86868b] border-b border-black/[0.06]">
+              <tr id="sql-table-header"></tr>
+            </thead>
+            <tbody id="sql-table-body" class="divide-y divide-black/[0.04] text-[#1d1d1f]"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: LIVE BOOKINGS & API TRACE LOGS -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Live Bookings Table Card -->
+      <div class="lg:col-span-6 bg-white border border-black/[0.08] rounded-[24px] p-7 shadow-apple">
+        <div class="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.06]">
+          <div>
+            <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">Live Bookings</h3>
+            <p class="text-xs text-[#6e6e73]">Recent transactional records</p>
+          </div>
+          <span class="text-[11px] font-mono text-[#86868b] bg-[#f5f5f7] px-2.5 py-0.5 rounded-full border border-black/[0.04]">Limit 25</span>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-black/[0.06] text-[#86868b] font-medium bg-[#fbfbfd]">
+                <th class="py-2.5 px-3">ID</th>
+                <th class="py-2.5 px-3">Customer</th>
+                <th class="py-2.5 px-3">Service</th>
+                <th class="py-2.5 px-3">Amount</th>
+                <th class="py-2.5 px-3">Status</th>
+                <th class="py-2.5 px-3">Payment</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-table-body" class="divide-y divide-black/[0.04]">
+              <!-- Dynamic Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live API Trace Logs Table Card -->
+      <div class="lg:col-span-6 bg-white border border-black/[0.08] rounded-[24px] p-7 shadow-apple">
+        <div class="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.06]">
+          <div>
+            <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">API Trace & Telemetry</h3>
+            <p class="text-xs text-[#6e6e73]">Incoming requests, latency & faults</p>
+          </div>
+          <span class="text-[11px] font-mono text-[#86868b] bg-[#f5f5f7] px-2.5 py-0.5 rounded-full border border-black/[0.04]">Limit 30</span>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left text-xs border-collapse font-mono">
+            <thead>
+              <tr class="border-b border-black/[0.06] text-[#86868b] font-medium bg-[#fbfbfd]">
+                <th class="py-2.5 px-2.5">Time</th>
+                <th class="py-2.5 px-2.5">Req</th>
+                <th class="py-2.5 px-2.5">Status</th>
+                <th class="py-2.5 px-2.5">Latency</th>
+                <th class="py-2.5 px-2.5">Fault</th>
+                <th class="py-2.5 px-2.5">Summary</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body" class="divide-y divide-black/[0.04] text-[11px]">
+              <!-- Dynamic Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- TEST RUNNER MODAL (APPLE SHEET STYLE) -->
+  <div id="test-modal" class="fixed inset-0 bg-black/40 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-black/[0.08] rounded-[24px] max-w-3xl w-full max-h-[85vh] flex flex-col shadow-appleModal overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-black/[0.06] flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-[#1d1d1f] tracking-tight">Automated QA Test Suite</h3>
+          <p class="text-xs text-[#6e6e73]">Pytest execution verifying boundary, idempotency, chaos, and security guards</p>
+        </div>
+        <button onclick="closeTestModal()" class="w-7 h-7 rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#86868b] hover:text-[#1d1d1f] flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 flex-1 overflow-auto bg-[#f5f5f7]">
+        <div id="test-loading" class="flex flex-col items-center justify-center py-14 space-y-3">
+          <div class="w-7 h-7 border-3 border-[#0071e3] border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-xs text-[#6e6e73] font-medium">Executing pytest test suite in background...</p>
+        </div>
+        <pre id="test-output-log" class="hidden text-xs font-mono text-[#1d1d1f] bg-white p-4 rounded-[14px] border border-black/[0.06] whitespace-pre-wrap leading-relaxed shadow-sm"></pre>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-black/[0.06] flex items-center justify-between bg-white">
+        <div id="test-status-pill" class="text-xs font-semibold px-3 py-1 rounded-full bg-[#f5f5f7] text-[#6e6e73] border border-black/[0.06]">Running</div>
+        <button onclick="closeTestModal()" class="px-4 py-1.5 text-xs font-medium rounded-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1d1d1f] border border-black/[0.06] transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER (APPLE FLOATING PILLS) -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2.5 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT CONTROLLER (100% PRESERVED ENDPOINTS & LOGIC) -->
+  <script>
+    // State management
+    let state = {
+      faults: {},
+      bookings: [],
+      tickets: [],
+      logs: []
+    };
+
+    // Initialize application
+    document.addEventListener("DOMContentLoaded", () => {
+      generateIdempotencyKey();
+      generateTxnId();
+      fetchOverview();
+      applySqlPreset("mismatched");
+
+      // Auto-refresh every 8 seconds
+      setInterval(fetchOverview, 8000);
+    });
+
+    // Utility: Toast notifications (Clean Apple Floating Pills)
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      
+      const colors = {
+        success: "border-[#ccebd0] bg-[#eefaf0]/95 text-[#1b5e20]",
+        error: "border-[#fcc2c2] bg-[#fff0f0]/95 text-[#c92a2a]",
+        warning: "border-[#fedf89] bg-[#fff8e6]/95 text-[#92400e]",
+        info: "border-black/[0.08] bg-white/95 text-[#1d1d1f]"
+      };
+
+      const icons = {
+        success: "fa-circle-check text-[#34c759]",
+        error: "fa-circle-exclamation text-[#ff3b30]",
+        warning: "fa-triangle-exclamation text-[#ff9500]",
+        info: "fa-circle-info text-[#0071e3]"
+      };
+
+      toast.className = `flex items-center space-x-2.5 px-4 py-2.5 rounded-full border text-xs shadow-lg backdrop-blur-md transition-all duration-300 transform translate-y-2 pointer-events-auto font-medium ${colors[type] || colors.info}`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+      
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove("translate-y-2"), 10);
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Generate random UUIDs for idempotency and transactions
+    function generateIdempotencyKey() {
+      const key = "idem-" + Math.random().toString(36).substring(2, 8);
+      document.getElementById("bk-idempotency").value = key;
+    }
+
+    function generateTxnId() {
+      const txn = "txn_" + Math.random().toString(36).substring(2, 10);
+      document.getElementById("wh-txn-id").value = txn;
+    }
+
+    // Display formatted response in Inspector (Apple Developer Console Palette)
+    function updateInspector(endpoint, status, data, latency = null) {
+      const statusBadge = document.getElementById("response-status-badge");
+      const endpointSpan = document.getElementById("response-endpoint");
+      const timeSpan = document.getElementById("response-time");
+      const viewer = document.getElementById("json-viewer");
+
+      endpointSpan.innerText = endpoint;
+      timeSpan.innerText = (latency !== null ? `${latency}ms • ` : "") + new Date().toLocaleTimeString();
+
+      statusBadge.innerText = `HTTP ${status}`;
+      statusBadge.className = "px-2.5 py-0.5 text-xs font-mono rounded-full font-semibold border ";
+      if (status >= 200 && status < 300) {
+        statusBadge.classList.add("bg-[#eefaf0]", "text-[#1b5e20]", "border-[#ccebd0]");
+      } else if (status >= 400 && status < 500) {
+        statusBadge.classList.add("bg-[#fff8e6]", "text-[#92400e]", "border-[#fedf89]");
+      } else {
+        statusBadge.classList.add("bg-[#fff0f0]", "text-[#c92a2a]", "border-[#fcc2c2]");
+      }
+
+      viewer.className = "flex-1 overflow-auto text-xs font-mono text-[#1d1d1f] leading-relaxed p-1";
+      viewer.innerText = JSON.stringify(data, null, 2);
+    }
+
+    // Fetch Full Overview
+    async function fetchOverview() {
+      const refreshIcon = document.getElementById("refresh-icon");
+      if (refreshIcon) refreshIcon.classList.add("fa-spin");
+
+      try {
+        const res = await fetch("/api/overview");
+        if (!res.ok) throw new Error("Failed to fetch overview");
+        const data = await res.json();
+        state = data;
+
+        renderStats();
+        renderFaults(data.faults);
+        renderTickets(data.tickets);
+        renderBookings(data.bookings);
+        renderLogs(data.logs);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove("fa-spin");
+      }
+    }
+
+    function renderStats() {
+      document.getElementById("stat-total-bookings").innerText = state.bookings.length;
+      
+      const openTickets = state.tickets.filter(t => t.status === "OPEN").length;
+      document.getElementById("stat-open-tickets").innerText = openTickets;
+      
+      document.getElementById("stat-total-logs").innerText = state.logs.length;
+
+      const activeFaults = Object.values(state.faults || {}).filter(Boolean).length;
+      document.getElementById("stat-active-faults").innerText = `${activeFaults} / 4`;
+
+      const statusBadge = document.getElementById("system-status-badge");
+      const statusText = document.getElementById("system-status-text");
+      if (activeFaults > 0) {
+        statusBadge.className = "hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-[#fff0f0] border border-[#fcc2c2] text-[#c92a2a] text-xs font-medium";
+        statusText.innerText = `${activeFaults} Chaos Fault(s) Active`;
+      } else {
+        statusBadge.className = "hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-[#eefaf0] border border-[#ccebd0] text-[#1b5e20] text-xs font-medium";
+        statusText.innerText = "System Nominal";
+      }
+    }
+
+    function renderFaults(faults) {
+      if (!faults) return;
+      for (const [key, val] of Object.entries(faults)) {
+        const input = document.getElementById(`toggle-${key}`);
+        if (input) input.checked = !!val;
+      }
+    }
+
+    async function toggleFault(faultName, isChecked) {
+      try {
+        const payload = { [faultName]: isChecked };
+        const res = await fetch("/api/faults", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const updated = await res.json();
+        state.faults = updated;
+        renderStats();
+        showToast(`Fault '${faultName}' ${isChecked ? "enabled" : "disabled"}`, isChecked ? "warning" : "info");
+        fetchOverview();
+      } catch (err) {
+        showToast("Error toggling fault flag", "error");
+      }
+    }
+
+    // Submit Booking
+    async function submitBooking(event) {
+      event.preventDefault();
+      const start = performance.now();
+      const btn = document.getElementById("btn-submit-booking");
+      btn.disabled = true;
+
+      const payload = {
+        customer_name: document.getElementById("bk-name").value.trim(),
+        customer_email: document.getElementById("bk-email").value.trim(),
+        service_type: document.getElementById("bk-service").value,
+        amount: parseFloat(document.getElementById("bk-amount").value),
+        idempotency_key: document.getElementById("bk-idempotency").value.trim() || null
+      };
+
+      try {
+        const res = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const latency = Math.round(performance.now() - start);
+        const data = await res.json();
+        updateInspector("POST /api/bookings", res.status, data, latency);
+
+        if (res.ok) {
+          showToast(`Booking ${data.id || "created"} confirmed (HTTP ${res.status})`, "success");
+          if (data.id) {
+            document.getElementById("wh-booking-id").value = data.id;
+          }
+          generateIdempotencyKey();
+        } else {
+          showToast(`Booking failed: ${data.detail || "HTTP " + res.status}`, "error");
+        }
+        fetchOverview();
+      } catch (err) {
+        showToast("Network error submitting booking", "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Submit Webhook
+    async function submitWebhook(event) {
+      event.preventDefault();
+      const start = performance.now();
+      const btn = document.getElementById("btn-submit-webhook");
+      btn.disabled = true;
+
+      const payload = {
+        booking_id: document.getElementById("wh-booking-id").value.trim(),
+        event: document.getElementById("wh-event").value,
+        transaction_id: document.getElementById("wh-txn-id").value.trim()
+      };
+
+      try {
+        const res = await fetch("/api/payments/webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const latency = Math.round(performance.now() - start);
+        const data = await res.json();
+        updateInspector("POST /api/payments/webhook", res.status, data, latency);
+
+        if (res.ok) {
+          if (data.status === "accepted_with_lag") {
+            showToast("Webhook dropped in transit! Support Ticket auto-created.", "warning");
+          } else {
+            showToast(`Webhook confirmed: Booking ${payload.booking_id} CONFIRMED`, "success");
+          }
+          generateTxnId();
+        } else {
+          showToast(`Webhook error: ${data.detail || "HTTP " + res.status}`, "error");
+        }
+        fetchOverview();
+      } catch (err) {
+        showToast("Network error sending webhook", "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Reconcile Booking
+    async function reconcileBooking(bookingId) {
+      try {
+        const res = await fetch(`/api/support/reconcile/${bookingId}`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        updateInspector(`POST /api/support/reconcile/${bookingId}`, res.status, data);
+
+        if (res.ok) {
+          showToast(`Booking ${bookingId} reconciled successfully`, "success");
+          fetchOverview();
+        } else {
+          showToast(`Reconciliation failed: ${data.detail}`, "error");
+        }
+      } catch (err) {
+        showToast("Error triggering reconciliation", "error");
+      }
+    }
+
+    // Render Tickets Table (Apple Clean Aesthetic)
+    function renderTickets(tickets) {
+      const tbody = document.getElementById("tickets-table-body");
+      tbody.innerHTML = "";
+
+      if (!tickets || tickets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-[#86868b] text-xs">No active support tickets found</td></tr>`;
+        return;
+      }
+
+      tickets.forEach(t => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-[#fbfbfd] transition-colors";
+
+        const isOpen = t.status === "OPEN";
+        const isHigh = t.severity === "HIGH";
+
+        tr.innerHTML = `
+          <td class="py-3 px-3.5 font-mono font-medium text-[#1d1d1f]">${t.id}</td>
+          <td class="py-3 px-3.5 font-mono">
+            <button onclick="document.getElementById('wh-booking-id').value='${t.booking_id}'" title="Copy to Webhook Simulator" class="text-[#0071e3] font-medium hover:underline">
+              ${t.booking_id}
+            </button>
+          </td>
+          <td class="py-3 px-3.5">
+            <span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full ${isHigh ? 'bg-[#fff0f0] text-[#c92a2a] border border-[#fcc2c2]' : 'bg-[#fff8e6] text-[#92400e] border border-[#fedf89]'}">
+              ${t.severity}
+            </span>
+          </td>
+          <td class="py-3 px-3.5 max-w-xs">
+            <div class="font-medium text-[#1d1d1f] truncate">${t.title}</div>
+            <div class="text-[11px] text-[#6e6e73] truncate">${t.description}</div>
+          </td>
+          <td class="py-3 px-3.5">
+            <span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full ${isOpen ? 'bg-[#fff8e6] text-[#92400e] border border-[#fedf89]' : 'bg-[#eefaf0] text-[#1b5e20] border border-[#ccebd0]'}">
+              ${t.status}
+            </span>
+          </td>
+          <td class="py-3 px-3.5 text-[11px] text-[#6e6e73] max-w-[200px] truncate">
+            ${t.resolution_note || '<span class="text-[#86868b] italic">Pending reconciliation</span>'}
+          </td>
+          <td class="py-3 px-3.5 text-right">
+            ${isOpen ? `
+              <button onclick="reconcileBooking('${t.booking_id}')" class="px-3.5 py-1 text-[11px] font-medium rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white transition shadow-sm flex items-center space-x-1 ml-auto active:scale-[0.98]">
+                <i class="fa-solid fa-wrench text-[10px]"></i>
+                <span>Reconcile</span>
+              </button>
+            ` : `
+              <span class="text-[11px] text-[#1b5e20] font-medium"><i class="fa-solid fa-check text-[10px] mr-1"></i>Resolved</span>
+            `}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Render Bookings Table
+    function renderBookings(bookings) {
+      const tbody = document.getElementById("bookings-table-body");
+      tbody.innerHTML = "";
+
+      if (!bookings || bookings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-[#86868b] text-xs">No bookings found</td></tr>`;
+        return;
+      }
+
+      bookings.forEach(b => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-[#fbfbfd] transition-colors cursor-pointer";
+        tr.onclick = (e) => {
+          if (e.target.tagName !== 'BUTTON') {
+            document.getElementById('wh-booking-id').value = b.id;
+            showToast(`Selected booking ${b.id} for webhook simulation`, "info");
+          }
+        };
+
+        const isConfirmed = b.status === "CONFIRMED";
+        const isFailed = b.status === "FAILED";
+
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-mono font-medium text-[#0071e3]">${b.id}</td>
+          <td class="py-2.5 px-3 text-[#1d1d1f]">
+            <div class="font-medium">${b.customer_name}</div>
+            <div class="text-[10px] text-[#86868b] font-mono">${b.customer_email}</div>
+          </td>
+          <td class="py-2.5 px-3 text-[#6e6e73]">${b.service_type}</td>
+          <td class="py-2.5 px-3 font-mono text-[#1d1d1f] font-medium">₹${b.amount.toFixed(2)}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2.5 py-0.5 text-[10px] font-semibold rounded-full ${
+              isConfirmed ? 'bg-[#eefaf0] text-[#1b5e20] border border-[#ccebd0]' :
+              isFailed ? 'bg-[#fff0f0] text-[#c92a2a] border border-[#fcc2c2]' :
+              'bg-[#fff8e6] text-[#92400e] border border-[#fedf89]'
+            }">
+              ${b.status}
+            </span>
+          </td>
+          <td class="py-2.5 px-3">
+            <span class="text-[10px] font-mono text-[#6e6e73]">${b.payment_status}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Render Logs Table
+    function renderLogs(logs) {
+      const tbody = document.getElementById("logs-table-body");
+      tbody.innerHTML = "";
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-[#86868b] text-xs">No telemetry logs available</td></tr>`;
+        return;
+      }
+
+      logs.forEach(l => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-[#fbfbfd] transition-colors";
+
+        const code = l.status_code;
+        const codeClass = code >= 200 && code < 300 ? "text-[#1b5e20] bg-[#eefaf0] border-[#ccebd0]" :
+                          code >= 400 && code < 500 ? "text-[#92400e] bg-[#fff8e6] border-[#fedf89]" :
+                          "text-[#c92a2a] bg-[#fff0f0] border-[#fcc2c2]";
+
+        const timeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : "";
+
+        tr.innerHTML = `
+          <td class="py-2 px-2.5 text-[#86868b]">${timeStr}</td>
+          <td class="py-2 px-2.5">
+            <span class="text-[#0071e3] font-semibold">${l.method}</span>
+            <span class="text-[#1d1d1f] ml-1 truncate">${l.endpoint}</span>
+          </td>
+          <td class="py-2 px-2.5">
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border ${codeClass}">${code}</span>
+          </td>
+          <td class="py-2 px-2.5 text-[#6e6e73]">${l.latency_ms}ms</td>
+          <td class="py-2 px-2.5">
+            ${l.fault_active && l.fault_active !== "NONE" ? 
+              `<span class="text-[#c92a2a] font-semibold">${l.fault_active}</span>` : 
+              `<span class="text-[#86868b]">-</span>`}
+          </td>
+          <td class="py-2 px-2.5 text-[#6e6e73] truncate max-w-[140px]" title="${l.error_detail || l.payload_summary || ''}">
+            ${l.error_detail || l.payload_summary || '-'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // SQL Diagnostic Presets
+    const sqlPresets = {
+      mismatched: "SELECT id, customer_name, status, payment_status, amount FROM bookings WHERE status != 'CONFIRMED' AND payment_status != 'AWAITING_WEBHOOK';",
+      stuck_tickets: "SELECT id, booking_id, severity, status, title FROM support_tickets WHERE status = 'OPEN';",
+      recent_errors: "SELECT timestamp, method, endpoint, status_code, latency_ms, fault_active, error_detail FROM api_logs WHERE status_code >= 400 ORDER BY id DESC LIMIT 10;",
+      all_bookings: "SELECT id, customer_name, service_type, amount, status, payment_status, idempotency_key FROM bookings ORDER BY created_at DESC LIMIT 15;",
+      blocked_test: "SELECT * FROM bookings; DROP TABLE bookings;"
+    };
+
+    function applySqlPreset(key) {
+      const query = sqlPresets[key];
+      if (query) {
+        document.getElementById("sql-input").value = query;
+      }
+    }
+
+    // Execute Diagnostic SQL
+    async function executeSql() {
+      const query = document.getElementById("sql-input").value.trim();
+      const errBox = document.getElementById("sql-error-box");
+      const errText = document.getElementById("sql-error-text");
+      const resultContainer = document.getElementById("sql-result-container");
+      const tableHeader = document.getElementById("sql-table-header");
+      const tableBody = document.getElementById("sql-table-body");
+      const rowCount = document.getElementById("sql-row-count");
+
+      errBox.classList.add("hidden");
+      resultContainer.classList.add("hidden");
+
+      if (!query) {
+        showToast("Please enter an SQL query", "warning");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/support/sql", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        updateInspector("POST /api/support/sql", res.status, data);
+
+        if (!res.ok) {
+          errText.innerText = data.detail || "Query execution failed";
+          errBox.classList.remove("hidden");
+          showToast(`Security guard blocked query: ${data.detail}`, "error");
+          return;
+        }
+
+        // Render table
+        tableHeader.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        if (data.columns) {
+          data.columns.forEach(col => {
+            const th = document.createElement("th");
+            th.className = "py-2.5 px-3.5 text-[#86868b] font-semibold";
+            th.innerText = col;
+            tableHeader.appendChild(th);
+          });
+        }
+
+        if (data.rows && data.rows.length > 0) {
+          data.rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-[#fbfbfd]";
+            data.columns.forEach(col => {
+              const td = document.createElement("td");
+              td.className = "py-2 px-3.5 text-[#1d1d1f]";
+              td.innerText = row[col] !== null ? row[col] : "NULL";
+              tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+          });
+        } else {
+          tableBody.innerHTML = `<tr><td colspan="${data.columns.length || 1}" class="py-4 text-center text-[#86868b]">0 rows matched query</td></tr>`;
+        }
+
+        rowCount.innerText = `${data.row_count || 0} row(s) returned`;
+        resultContainer.classList.remove("hidden");
+        showToast(`SQL query executed (${data.row_count} rows)`, "success");
+      } catch (err) {
+        errText.innerText = "Network connection failed";
+        errBox.classList.remove("hidden");
+      }
+    }
+
+    // Run Automated Pytest Suite
+    async function runPytestSuite() {
+      const modal = document.getElementById("test-modal");
+      const loading = document.getElementById("test-loading");
+      const outputLog = document.getElementById("test-output-log");
+      const pill = document.getElementById("test-status-pill");
+
+      modal.classList.remove("hidden");
+      loading.classList.remove("hidden");
+      outputLog.classList.add("hidden");
+      pill.className = "text-xs font-semibold px-3 py-1 rounded-full bg-[#f5f5f7] text-[#0071e3] border border-[#0071e3]/30 animate-pulse";
+      pill.innerText = "Running Pytest Suite...";
+
+      try {
+        const res = await fetch("/api/qa/run-tests", { method: "POST" });
+        const data = await res.json();
+        updateInspector("POST /api/qa/run-tests", res.status, data);
+
+        loading.classList.add("hidden");
+        outputLog.classList.remove("hidden");
+        outputLog.innerText = data.output || "No output returned.";
+
+        if (data.passed) {
+          pill.className = "text-xs font-semibold px-3 py-1 rounded-full bg-[#eefaf0] text-[#1b5e20] border border-[#ccebd0]";
+          pill.innerText = "ALL TESTS PASSED";
+          showToast("Automated Pytest Suite passed successfully!", "success");
+        } else {
+          pill.className = "text-xs font-semibold px-3 py-1 rounded-full bg-[#fff0f0] text-[#c92a2a] border border-[#fcc2c2]";
+          pill.innerText = `TESTS FAILED (Exit Code: ${data.exit_code})`;
+          showToast("Pytest execution failed or tests failed", "error");
+        }
+      } catch (err) {
+        loading.classList.add("hidden");
+        outputLog.classList.remove("hidden");
+        outputLog.innerText = "Failed to run test suite: " + err.message;
+        pill.className = "text-xs font-semibold px-3 py-1 rounded-full bg-[#fff0f0] text-[#c92a2a]";
+        pill.innerText = "ERROR";
+      }
+    }
+
+    function closeTestModal() {
+      document.getElementById("test-modal").classList.add("hidden");
+    }
+
+    // Reset Sandbox
+    async function resetSandbox() {
+      if (!confirm("Are you sure you want to reset TraceGate sandbox to its default initial state?")) {
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/reset", { method: "POST" });
+        const data = await res.json();
+        updateInspector("POST /api/reset", res.status, data);
+        showToast("Sandbox reset complete: default data & faults restored", "info");
+        fetchOverview();
+      } catch (err) {
+        showToast("Failed to reset sandbox", "error");
+      }
+    }
+  </script>
+</body>
+</html>
